@@ -76,6 +76,10 @@ impl SwayOSDApplication {
 			set_default_min_brightness(min_brightness);
 			reset_min_brightness();
 		}
+		if let Some(duration) = server_config.duration {
+			set_default_duration(duration);
+			reset_duration();
+		}
 		if let Some(show) = server_config.show_percentage {
 			set_show_percentage(show);
 		}
@@ -406,6 +410,7 @@ impl SwayOSDApplication {
 					}
 				}
 				reset_max_volume();
+				reset_duration();
 				reset_device_name();
 				reset_monitor_name();
 			}
@@ -419,6 +424,7 @@ impl SwayOSDApplication {
 					}
 				}
 				reset_max_volume();
+				reset_duration();
 				reset_device_name();
 				reset_monitor_name();
 			}
@@ -432,6 +438,7 @@ impl SwayOSDApplication {
 					}
 				}
 				reset_max_volume();
+				reset_duration();
 				reset_device_name();
 				reset_monitor_name();
 			}
@@ -445,6 +452,7 @@ impl SwayOSDApplication {
 					}
 				}
 				reset_max_volume();
+				reset_duration();
 				reset_device_name();
 				reset_monitor_name();
 			}
@@ -458,6 +466,7 @@ impl SwayOSDApplication {
 					}
 				}
 				reset_max_volume();
+				reset_duration();
 				reset_device_name();
 				reset_monitor_name();
 			}
@@ -471,6 +480,7 @@ impl SwayOSDApplication {
 					}
 				}
 				reset_max_volume();
+				reset_duration();
 				reset_device_name();
 				reset_monitor_name();
 			}
@@ -481,6 +491,7 @@ impl SwayOSDApplication {
 					window.changed_brightness(brightness_backend.as_mut());
 				}
 				reset_min_brightness();
+				reset_duration();
 				reset_monitor_name();
 			}
 			(ArgTypes::BrightnessLower, step) => {
@@ -492,6 +503,7 @@ impl SwayOSDApplication {
 					}
 				}
 				reset_min_brightness();
+				reset_duration();
 				reset_monitor_name();
 			}
 			(ArgTypes::BrightnessSet, value) => {
@@ -500,6 +512,7 @@ impl SwayOSDApplication {
 					window.changed_brightness(brightness_backend.as_mut());
 				}
 				reset_min_brightness();
+				reset_duration();
 				reset_monitor_name();
 			}
 			(ArgTypes::CapsLock, value) => {
@@ -511,6 +524,7 @@ impl SwayOSDApplication {
 				for window in self.choose_windows() {
 					window.changed_keylock(KeysLocks::CapsLock, state)
 				}
+				reset_duration();
 				reset_monitor_name();
 			}
 			(ArgTypes::NumLock, value) => {
@@ -522,6 +536,7 @@ impl SwayOSDApplication {
 				for window in self.choose_windows() {
 					window.changed_keylock(KeysLocks::NumLock, state)
 				}
+				reset_duration();
 				reset_monitor_name();
 			}
 			(ArgTypes::ScrollLock, value) => {
@@ -533,6 +548,7 @@ impl SwayOSDApplication {
 				for window in self.choose_windows() {
 					window.changed_keylock(KeysLocks::ScrollLock, state)
 				}
+				reset_duration();
 				reset_monitor_name();
 			}
 			(ArgTypes::MaxVolume, max) => {
@@ -555,6 +571,16 @@ impl SwayOSDApplication {
 				};
 				set_min_brightness(brightness)
 			}
+			(ArgTypes::Duration, duration) => {
+				let duration = match duration {
+					Some(duration) => match duration.parse() {
+						Ok(duration) => duration,
+						_ => get_default_duration(),
+					},
+					_ => get_default_duration(),
+				};
+				set_duration(duration)
+			}
 			(ArgTypes::Player, name) => set_player(name.unwrap_or("".to_string())),
 			(ArgTypes::Playerctl, value) => {
 				let value = &value.unwrap_or("".to_string());
@@ -566,6 +592,7 @@ impl SwayOSDApplication {
 							for window in self.choose_windows() {
 								window.changed_player(&icon, label.as_deref())
 							}
+							reset_duration();
 							reset_monitor_name();
 						}
 						Err(x) => {
@@ -586,6 +613,7 @@ impl SwayOSDApplication {
 						window.changed_kbd_backlight(value, n_segments);
 					}
 				}
+				reset_duration();
 				reset_monitor_name();
 			}
 			(ArgTypes::DeviceName, name) => {
@@ -602,6 +630,7 @@ impl SwayOSDApplication {
 						window.custom_message(message.as_str(), get_icon_name().as_deref());
 					}
 				}
+				reset_duration();
 				reset_icon_name();
 				reset_monitor_name();
 			}
@@ -616,6 +645,7 @@ impl SwayOSDApplication {
 						);
 					}
 				}
+				reset_duration();
 				reset_progress_text();
 				reset_icon_name();
 				reset_monitor_name();
@@ -633,6 +663,7 @@ impl SwayOSDApplication {
 						);
 					}
 				}
+				reset_duration();
 				reset_progress_text();
 				reset_icon_name();
 				reset_monitor_name();

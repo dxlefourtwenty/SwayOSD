@@ -86,6 +86,13 @@ fn parse_args(args: &ArgsClient, proxy: &ServerProxyBlocking<'_>) {
 	if let Some(value) = args.monitor.to_owned() {
 		actions.push((ArgTypes::MonitorName, Some(value)));
 	}
+	// OSD duration
+	if let Some(value) = args.duration.to_owned() {
+		match value.parse::<u64>() {
+			Ok(_) => actions.push((ArgTypes::Duration, Some(value))),
+			Err(_) => eprintln!("{} is not a positive number of milliseconds!", value),
+		}
+	}
 	// Custom progress text
 	if let Some(value) = args.custom_progress_text.to_owned() {
 		actions.push((ArgTypes::CustomProgressText, Some(value)));

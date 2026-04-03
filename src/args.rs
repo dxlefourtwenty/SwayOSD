@@ -30,6 +30,10 @@ pub struct ArgsClient {
 	#[arg(long, value_name = "Monitor identifier (e.g., HDMI-A-1, DP-1)")]
 	pub monitor: Option<String>,
 
+	/// How long to show the OSD for in milliseconds
+	#[arg(long, value_name = "milliseconds")]
+	pub duration: Option<String>,
+
 	/// Shows capslock osd. Note: Doesn't toggle CapsLock, just displays the status
 	#[arg(long, default_value_t = false)]
 	pub caps_lock: bool,

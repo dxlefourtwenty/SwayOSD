@@ -114,6 +114,9 @@ bindsym XF86AudioRaiseVolume exec swayosd-client --output-volume raise --max-vol
 # Volume lower with max value
 bindsym XF86AudioLowerVolume exec swayosd-client --output-volume lower --max-volume 120
 
+# Volume raise with a custom OSD duration in milliseconds
+bindsym XF86AudioRaiseVolume exec swayosd-client --duration 2000 --output-volume raise
+
 # Sink volume raise with custom value optionally with --device
 bindsym XF86AudioRaiseVolume exec  swayosd-client --output-volume +10 --device alsa_output.pci-0000_11_00.4.analog-stereo.monitor
 # Sink volume lower with custom value optionally with --device

@@ -16,12 +16,15 @@ use crate::playerctl::PlayerctlDeviceRaw;
 
 static PRIV_MAX_VOLUME_DEFAULT: u8 = 100_u8;
 static PRIV_MIN_BRIGHTNESS_DEFAULT: u32 = 5_u32;
+static PRIV_DURATION_DEFAULT: u64 = 1000_u64;
 
 lazy_static! {
 	static ref MAX_VOLUME_DEFAULT: Mutex<u8> = Mutex::new(PRIV_MAX_VOLUME_DEFAULT);
 	static ref MAX_VOLUME: Mutex<u8> = Mutex::new(PRIV_MAX_VOLUME_DEFAULT);
 	static ref MIN_BRIGHTNESS_DEFAULT: Mutex<u32> = Mutex::new(PRIV_MIN_BRIGHTNESS_DEFAULT);
 	static ref MIN_BRIGHTNESS: Mutex<u32> = Mutex::new(PRIV_MIN_BRIGHTNESS_DEFAULT);
+	static ref DURATION_DEFAULT: Mutex<u64> = Mutex::new(PRIV_DURATION_DEFAULT);
+	static ref DURATION: Mutex<u64> = Mutex::new(PRIV_DURATION_DEFAULT);
 	pub static ref DEVICE_NAME_DEFAULT: &'static str = "default";
 	static ref DEVICE_NAME: Mutex<Option<String>> = Mutex::new(None);
 	static ref MONITOR_NAME: Mutex<Option<String>> = Mutex::new(None);
@@ -85,6 +88,29 @@ pub fn set_min_brightness(brightness: u32) {
 pub fn reset_min_brightness() {
 	let mut min = MIN_BRIGHTNESS.lock().unwrap();
 	*min = *MIN_BRIGHTNESS_DEFAULT.lock().unwrap();
+}
+
+pub fn get_default_duration() -> u64 {
+	*DURATION_DEFAULT.lock().unwrap()
+}
+
+pub fn set_default_duration(duration: u64) {
+	let mut duration_default = DURATION_DEFAULT.lock().unwrap();
+	*duration_default = duration;
+}
+
+pub fn get_duration() -> u64 {
+	*DURATION.lock().unwrap()
+}
+
+pub fn set_duration(duration: u64) {
+	let mut duration_current = DURATION.lock().unwrap();
+	*duration_current = duration;
+}
+
+pub fn reset_duration() {
+	let mut duration_current = DURATION.lock().unwrap();
+	*duration_current = *DURATION_DEFAULT.lock().unwrap();
 }
 
 pub fn get_top_margin() -> f32 {
