@@ -17,6 +17,11 @@ use crate::playerctl::PlayerctlDeviceRaw;
 static PRIV_MAX_VOLUME_DEFAULT: u8 = 100_u8;
 static PRIV_MIN_BRIGHTNESS_DEFAULT: u32 = 5_u32;
 static PRIV_DURATION_DEFAULT: u64 = 1000_u64;
+static PRIV_SLIDE_DEFAULT: bool = true;
+static PRIV_SLIDE_DURATION_DEFAULT: u64 = 150_u64;
+static PRIV_SLIDE_HIDE_DURATION_DEFAULT: u64 = 120_u64;
+static PRIV_SLIDE_FPS_DEFAULT: u64 = 60_u64;
+static PRIV_SLIDE_OFFSCREEN_PADDING_DEFAULT: i32 = 16_i32;
 
 lazy_static! {
 	static ref MAX_VOLUME_DEFAULT: Mutex<u8> = Mutex::new(PRIV_MAX_VOLUME_DEFAULT);
@@ -25,6 +30,12 @@ lazy_static! {
 	static ref MIN_BRIGHTNESS: Mutex<u32> = Mutex::new(PRIV_MIN_BRIGHTNESS_DEFAULT);
 	static ref DURATION_DEFAULT: Mutex<u64> = Mutex::new(PRIV_DURATION_DEFAULT);
 	static ref DURATION: Mutex<u64> = Mutex::new(PRIV_DURATION_DEFAULT);
+	static ref SLIDE: Mutex<bool> = Mutex::new(PRIV_SLIDE_DEFAULT);
+	static ref SLIDE_DURATION: Mutex<u64> = Mutex::new(PRIV_SLIDE_DURATION_DEFAULT);
+	static ref SLIDE_HIDE_DURATION: Mutex<u64> = Mutex::new(PRIV_SLIDE_HIDE_DURATION_DEFAULT);
+	static ref SLIDE_FPS: Mutex<u64> = Mutex::new(PRIV_SLIDE_FPS_DEFAULT);
+	static ref SLIDE_OFFSCREEN_PADDING: Mutex<i32> =
+		Mutex::new(PRIV_SLIDE_OFFSCREEN_PADDING_DEFAULT);
 	pub static ref DEVICE_NAME_DEFAULT: &'static str = "default";
 	static ref DEVICE_NAME: Mutex<Option<String>> = Mutex::new(None);
 	static ref MONITOR_NAME: Mutex<Option<String>> = Mutex::new(None);
@@ -111,6 +122,51 @@ pub fn set_duration(duration: u64) {
 pub fn reset_duration() {
 	let mut duration_current = DURATION.lock().unwrap();
 	*duration_current = *DURATION_DEFAULT.lock().unwrap();
+}
+
+pub fn get_slide() -> bool {
+	*SLIDE.lock().unwrap()
+}
+
+pub fn set_slide(slide: bool) {
+	let mut slide_mut = SLIDE.lock().unwrap();
+	*slide_mut = slide;
+}
+
+pub fn get_slide_duration() -> u64 {
+	*SLIDE_DURATION.lock().unwrap()
+}
+
+pub fn set_slide_duration(duration: u64) {
+	let mut slide_duration = SLIDE_DURATION.lock().unwrap();
+	*slide_duration = duration;
+}
+
+pub fn get_slide_hide_duration() -> u64 {
+	*SLIDE_HIDE_DURATION.lock().unwrap()
+}
+
+pub fn set_slide_hide_duration(duration: u64) {
+	let mut slide_hide_duration = SLIDE_HIDE_DURATION.lock().unwrap();
+	*slide_hide_duration = duration;
+}
+
+pub fn get_slide_fps() -> u64 {
+	*SLIDE_FPS.lock().unwrap()
+}
+
+pub fn set_slide_fps(fps: u64) {
+	let mut slide_fps = SLIDE_FPS.lock().unwrap();
+	*slide_fps = fps.clamp(1, 240);
+}
+
+pub fn get_slide_offscreen_padding() -> i32 {
+	*SLIDE_OFFSCREEN_PADDING.lock().unwrap()
+}
+
+pub fn set_slide_offscreen_padding(padding: i32) {
+	let mut slide_offscreen_padding = SLIDE_OFFSCREEN_PADDING.lock().unwrap();
+	*slide_offscreen_padding = padding.clamp(0, 200);
 }
 
 pub fn get_top_margin() -> f32 {

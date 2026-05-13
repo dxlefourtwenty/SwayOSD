@@ -11,6 +11,21 @@
 ## How long the OSD stays visible in milliseconds
 # duration = 1000
 
+## Slide the OSD up from the bottom edge
+# slide = true
+
+## How long the slide-in animation takes in milliseconds
+# slide_duration = 150
+
+## How long the slide-out animation takes in milliseconds
+# slide_hide_duration = 120
+
+## Animation refresh rate. Values above your monitor refresh rate are usually unnecessary.
+# slide_fps = 60
+
+## Extra pixels to move below the bottom edge when hiding
+# slide_offscreen_padding = 16
+
 ## The minimum brightness that can be reached in %
 min_brightness = 5
 

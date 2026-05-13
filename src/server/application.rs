@@ -80,6 +80,21 @@ impl SwayOSDApplication {
 			set_default_duration(duration);
 			reset_duration();
 		}
+		if let Some(slide) = server_config.slide {
+			set_slide(slide);
+		}
+		if let Some(duration) = server_config.slide_duration {
+			set_slide_duration(duration);
+		}
+		if let Some(duration) = server_config.slide_hide_duration {
+			set_slide_hide_duration(duration);
+		}
+		if let Some(fps) = server_config.slide_fps {
+			set_slide_fps(fps);
+		}
+		if let Some(padding) = server_config.slide_offscreen_padding {
+			set_slide_offscreen_padding(padding);
+		}
 		if let Some(show) = server_config.show_percentage {
 			set_show_percentage(show);
 		}

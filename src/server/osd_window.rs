@@ -1,10 +1,10 @@
 use std::rc::Rc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use std::{cell::RefCell, ops::Deref};
 
 use gtk::{
 	gdk,
-	glib::{self, clone},
+	glib::{self, clone, ControlFlow},
 	prelude::*,
 };
 use pulsectl::controllers::types::DeviceInfo;
@@ -13,8 +13,9 @@ use crate::widgets::segmented_progress_widget::SegmentedProgressWidget;
 use crate::{
 	brightness_backend::BrightnessBackend,
 	utils::{
-		get_duration, get_max_volume, get_show_percentage, get_top_margin, volume_to_f64,
-		KeysLocks, VolumeDeviceType,
+		get_duration, get_max_volume, get_show_percentage, get_slide, get_slide_duration,
+		get_slide_fps, get_slide_hide_duration, get_slide_offscreen_padding, get_top_margin,
+		volume_to_f64, KeysLocks, VolumeDeviceType,
 	},
 };
 
@@ -29,6 +30,7 @@ pub struct SwayosdWindow {
 	pub monitor: gdk::Monitor,
 	container: gtk::Box,
 	timeout_id: Rc<RefCell<Option<glib::SourceId>>>,
+	animation_id: Rc<RefCell<Option<glib::SourceId>>>,
 }
 
 // TODO: Use custom widget
@@ -69,15 +71,10 @@ impl SwayosdWindow {
 		});
 
 		let update_margins = |window: &gtk::ApplicationWindow, monitor: &gdk::Monitor| {
-			// Monitor scale factor is not always correct
-			// Transform monitor height into coordinate system of window
-			let mon_height = monitor.geometry().height() / window.scale_factor();
-			// Calculate margin from bottom while preserving top_margin semantics:
-			// top_margin=0.85 means window should be at 85% from top, which equals
-			// 15% from bottom. By anchoring to bottom, we avoid issues with
-			// window.allocated_height() being 0 or incorrect during initialization.
-			let margin = (mon_height as f32 * (1.0 - get_top_margin())).round() as i32;
-			window.set_margin(gtk_layer_shell::Edge::Bottom, margin);
+			window.set_margin(
+				gtk_layer_shell::Edge::Bottom,
+				Self::target_bottom_margin(window, monitor),
+			);
 		};
 
 		// Set the window margin
@@ -104,10 +101,12 @@ impl SwayosdWindow {
 			container,
 			monitor: monitor.clone(),
 			timeout_id: Rc::new(RefCell::new(None)),
+			animation_id: Rc::new(RefCell::new(None)),
 		}
 	}
 
 	pub fn close(&self) {
+		self.remove_animation();
 		self.window.close();
 	}
 
@@ -332,6 +331,8 @@ impl SwayosdWindow {
 	}
 
 	fn run_timeout(&self) {
+		let was_visible = self.window.is_visible();
+
 		// Hide window after timeout
 		if let Some(timeout_id) = self.timeout_id.take() {
 			timeout_id.remove()
@@ -340,12 +341,160 @@ impl SwayosdWindow {
 		self.timeout_id.replace(Some(glib::timeout_add_local_once(
 			Duration::from_millis(get_duration()),
 			move || {
-				s.window.hide();
 				s.timeout_id.replace(None);
+				s.slide_out();
 			},
 		)));
 
+		if was_visible {
+			self.show_in_place();
+		} else {
+			self.slide_in();
+		}
+	}
+
+	fn slide_in(&self) {
+		let target_margin = self.current_target_bottom_margin();
+		if !get_slide() || get_slide_duration() == 0 {
+			self.show_at_margin(target_margin);
+			return;
+		}
+
+		let hidden_margin = self.hidden_bottom_margin();
+		self.window
+			.set_margin(gtk_layer_shell::Edge::Bottom, hidden_margin);
 		self.window.show();
+		self.animate_bottom_margin(
+			hidden_margin,
+			get_slide_duration(),
+			false,
+			self.target_margin_getter(),
+		);
+	}
+
+	fn slide_out(&self) {
+		let start_margin = self.current_bottom_margin();
+		if !get_slide() || get_slide_hide_duration() == 0 {
+			self.remove_animation();
+			self.window.hide();
+			return;
+		}
+
+		self.animate_bottom_margin(
+			start_margin,
+			get_slide_hide_duration(),
+			true,
+			self.hidden_margin_getter(),
+		);
+	}
+
+	fn show_in_place(&self) {
+		self.show_at_margin(self.current_target_bottom_margin());
+	}
+
+	fn show_at_margin(&self, margin: i32) {
+		self.remove_animation();
+		self.window
+			.set_margin(gtk_layer_shell::Edge::Bottom, margin);
+		self.window.show();
+	}
+
+	fn animate_bottom_margin<F>(&self, from: i32, duration_ms: u64, hide_after: bool, to_margin: F)
+	where
+		F: Fn() -> i32 + 'static,
+	{
+		self.remove_animation();
+
+		let to = to_margin();
+		if from == to {
+			self.window.set_margin(gtk_layer_shell::Edge::Bottom, to);
+			if hide_after {
+				self.window.hide();
+			}
+			return;
+		}
+
+		let window = self.window.clone();
+		let animation_id = self.animation_id.clone();
+		let started_at = Instant::now();
+		let interval = Duration::from_millis((1000 / get_slide_fps()).max(1));
+		let duration = Duration::from_millis(duration_ms);
+
+		let source_id = glib::timeout_add_local(interval, move || {
+			let progress = (started_at.elapsed().as_secs_f64() / duration.as_secs_f64()).min(1.0);
+			let eased_progress = 1.0 - (1.0 - progress).powi(3);
+			let to = to_margin();
+			let margin = from as f64 + (to - from) as f64 * eased_progress;
+			window.set_margin(gtk_layer_shell::Edge::Bottom, margin.round() as i32);
+
+			if progress >= 1.0 {
+				window.set_margin(gtk_layer_shell::Edge::Bottom, to_margin());
+				if hide_after {
+					window.hide();
+				}
+				animation_id.replace(None);
+				ControlFlow::Break
+			} else {
+				ControlFlow::Continue
+			}
+		});
+
+		self.animation_id.replace(Some(source_id));
+	}
+
+	fn remove_animation(&self) {
+		if let Some(animation_id) = self.animation_id.take() {
+			animation_id.remove();
+		}
+	}
+
+	fn current_bottom_margin(&self) -> i32 {
+		self.window.margin(gtk_layer_shell::Edge::Bottom)
+	}
+
+	fn current_target_bottom_margin(&self) -> i32 {
+		Self::target_bottom_margin(&self.window, &self.monitor)
+	}
+
+	fn hidden_bottom_margin(&self) -> i32 {
+		-(self.window_height().max(1) + get_slide_offscreen_padding())
+	}
+
+	fn window_height(&self) -> i32 {
+		Self::measured_window_height(&self.window, &self.container)
+	}
+
+	fn target_margin_getter(&self) -> impl Fn() -> i32 + 'static {
+		let window = self.window.clone();
+		let monitor = self.monitor.clone();
+		move || Self::target_bottom_margin(&window, &monitor)
+	}
+
+	fn hidden_margin_getter(&self) -> impl Fn() -> i32 + 'static {
+		let window = self.window.clone();
+		let container = self.container.clone();
+		move || {
+			-(Self::measured_window_height(&window, &container).max(1)
+				+ get_slide_offscreen_padding())
+		}
+	}
+
+	fn measured_window_height(window: &gtk::ApplicationWindow, container: &gtk::Box) -> i32 {
+		let allocated_height = window.allocated_height().max(container.allocated_height());
+		if allocated_height > 0 {
+			return allocated_height;
+		}
+
+		let (_minimum, natural, _minimum_baseline, _natural_baseline) =
+			container.measure(gtk::Orientation::Vertical, -1);
+		natural
+	}
+
+	fn target_bottom_margin(window: &gtk::ApplicationWindow, monitor: &gdk::Monitor) -> i32 {
+		// Monitor scale factor is not always correct, so transform monitor height
+		// into the coordinate system of the window before calculating the offset.
+		let mon_height = monitor.geometry().height() / window.scale_factor();
+		(mon_height as f32 * (1.0 - get_top_margin())).round() as i32
 	}
 
 	fn build_icon_widget(&self, icon_name: &str) -> gtk::Image {
