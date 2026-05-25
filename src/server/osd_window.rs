@@ -22,6 +22,7 @@ use crate::{
 use gtk_layer_shell::LayerShell;
 
 const ICON_SIZE: i32 = 32;
+const MIN_WINDOW_WIDTH: i32 = 250;
 
 /// A window that our application can open that contains the main project view.
 #[derive(Clone, Debug)]
@@ -53,7 +54,7 @@ impl SwayosdWindow {
 		window.set_anchor(gtk_layer_shell::Edge::Bottom, true);
 
 		// Set up the widgets
-		window.set_width_request(250);
+		window.set_width_request(MIN_WINDOW_WIDTH);
 
 		let container = cascade! {
 			gtk::Box::new(gtk::Orientation::Horizontal, 12);
@@ -328,6 +329,8 @@ impl SwayosdWindow {
 			next = widget.next_sibling();
 			self.container.remove(&widget);
 		}
+		self.container.queue_resize();
+		self.window.queue_resize();
 	}
 
 	fn run_timeout(&self) {
@@ -389,6 +392,7 @@ impl SwayosdWindow {
 	}
 
 	fn show_in_place(&self) {
+		self.remap_if_oversized_for_content();
 		self.show_at_margin(self.current_target_bottom_margin());
 	}
 
@@ -445,6 +449,33 @@ impl SwayosdWindow {
 	fn remove_animation(&self) {
 		if let Some(animation_id) = self.animation_id.take() {
 			animation_id.remove();
+		}
+	}
+
+	fn remap_if_oversized_for_content(&self) {
+		let allocated_width = self.window.allocated_width();
+		let allocated_height = self.window.allocated_height();
+
+		if allocated_width <= 0 || allocated_height <= 0 {
+			return;
+		}
+
+		let natural_width = self.natural_window_size(gtk::Orientation::Horizontal);
+		let natural_height = self.natural_window_size(gtk::Orientation::Vertical);
+		let is_oversized = allocated_width > natural_width || allocated_height > natural_height;
+
+		if is_oversized {
+			self.window.hide();
+		}
+	}
+
+	fn natural_window_size(&self, orientation: gtk::Orientation) -> i32 {
+		let (_minimum, natural, _minimum_baseline, _natural_baseline) =
+			self.window.measure(orientation, -1);
+		match orientation {
+			gtk::Orientation::Horizontal => natural.max(MIN_WINDOW_WIDTH),
+			gtk::Orientation::Vertical => natural,
+			_ => natural,
 		}
 	}
 
