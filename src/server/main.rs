@@ -42,7 +42,7 @@ use utils::{get_system_css_path, user_style_path};
 use zbus::{connection, interface};
 
 struct DbusServer {
-	sender: Sender<(ArgTypes, String)>,
+	sender: Sender<Vec<(ArgTypes, String)>>,
 }
 
 #[interface(name = "org.erikreider.swayosd")]
@@ -55,7 +55,27 @@ impl DbusServer {
 				return false;
 			}
 		};
-		if let Err(error) = self.sender.send((arg_type, data)).await {
+		if let Err(error) = self.sender.send(vec![(arg_type, data)]).await {
+			eprintln!("Channel Send error: {}", error);
+			return false;
+		}
+		true
+	}
+
+	pub async fn handle_actions(&self, actions: Vec<(String, String)>) -> bool {
+		let mut parsed_actions = Vec::with_capacity(actions.len());
+		for (arg_type, data) in actions {
+			let arg_type = match ArgTypes::from_str(&arg_type) {
+				Ok(arg_type) => arg_type,
+				Err(other_type) => {
+					eprintln!("Unknown action in Dbus handle_actions: {:?}", other_type);
+					return false;
+				}
+			};
+			parsed_actions.push((arg_type, data));
+		}
+
+		if let Err(error) = self.sender.send(parsed_actions).await {
 			eprintln!("Channel Send error: {}", error);
 			return false;
 		}
@@ -64,7 +84,7 @@ impl DbusServer {
 }
 
 impl DbusServer {
-	async fn init(sender: Sender<(ArgTypes, String)>) -> zbus::Result<()> {
+	async fn init(sender: Sender<Vec<(ArgTypes, String)>>) -> zbus::Result<()> {
 		let _connection = connection::Builder::session()?
 			.name(DBUS_SERVER_NAME)?
 			.serve_at(DBUS_PATH, DbusServer { sender })?
@@ -137,7 +157,7 @@ fn main() {
 		println!("Loaded user defined CSS file");
 	}
 
-	let (sender, receiver) = async_channel::bounded::<(ArgTypes, String)>(1);
+	let (sender, receiver) = async_channel::bounded::<Vec<(ArgTypes, String)>>(1);
 	// Start the DBus Server
 	async_std::task::spawn(DbusServer::init(sender));
 	// Start the GTK Application

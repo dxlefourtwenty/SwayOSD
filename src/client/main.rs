@@ -23,6 +23,7 @@ use crate::argtypes::ArgTypes;
 )]
 trait Server {
 	async fn handle_action(&self, arg_type: String, data: String) -> zbus::Result<bool>;
+	async fn handle_actions(&self, actions: Vec<(String, String)>) -> zbus::Result<bool>;
 }
 
 fn get_proxy() -> zbus::Result<ServerProxyBlocking<'static>> {
@@ -200,10 +201,11 @@ fn parse_args(args: &ArgsClient, proxy: &ServerProxyBlocking<'_>) {
 		}
 	}
 
-	// execute the sorted actions
-	for (arg_type, data) in actions {
-		let _ = proxy.handle_action(arg_type.to_string(), data.unwrap_or(String::new()));
-	}
+	let actions = actions
+		.into_iter()
+		.map(|(arg_type, data)| (arg_type.to_string(), data.unwrap_or_default()))
+		.collect();
+	let _ = proxy.handle_actions(actions);
 }
 
 fn volume_parser(is_sink: bool, value: &str) -> Result<(ArgTypes, Option<String>), i32> {

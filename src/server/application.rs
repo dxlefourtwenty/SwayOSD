@@ -38,7 +38,7 @@ impl SwayOSDApplication {
 	pub fn new(
 		server_config: Arc<ServerConfig>,
 		args: Arc<ArgsServer>,
-		action_receiver: Receiver<(ArgTypes, String)>,
+		action_receiver: Receiver<Vec<(ArgTypes, String)>>,
 	) -> Self {
 		let app = Application::new(Some(APPLICATION_NAME), ApplicationFlags::FLAGS_NONE);
 		let hold = Rc::new(app.hold());
@@ -108,13 +108,15 @@ impl SwayOSDApplication {
 			#[strong]
 			server_config,
 			async move {
-				while let Ok((arg_type, data)) = action_receiver.recv().await {
-					if let Err(error) = osd_app.action_activated(
-						server_config.clone(),
-						arg_type,
-						(!data.is_empty()).then_some(data),
-					) {
-						eprintln!("Could not activate action: {:?}", error)
+				while let Ok(actions) = action_receiver.recv().await {
+					for (arg_type, data) in actions {
+						if let Err(error) = osd_app.action_activated(
+							server_config.clone(),
+							arg_type,
+							(!data.is_empty()).then_some(data),
+						) {
+							eprintln!("Could not activate action: {:?}", error)
+						}
 					}
 				}
 				Break
@@ -402,7 +404,6 @@ impl SwayOSDApplication {
 
 		if selected_windows.is_empty() {
 			eprintln!("Specified monitor name, but found no matching output");
-			return self.windows.borrow().to_owned();
 		}
 
 		selected_windows
