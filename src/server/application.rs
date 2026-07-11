@@ -386,27 +386,58 @@ impl SwayOSDApplication {
 		}
 	}
 
-	fn choose_windows(&self) -> Vec<SwayosdWindow> {
-		let mut selected_windows = Vec::new();
+	fn rebuild_windows(&self) {
+		let display: gdk::Display = gdk::Display::default().expect("Could not get GDK Display!");
+		let monitors = display.monitors();
+		let mut windows = self.windows.borrow_mut();
 
-		match get_monitor_name() {
-			Some(monitor_name) => {
-				for window in self.windows.borrow().to_owned() {
-					if let Some(monitor_connector) = window.monitor.connector()
-						&& monitor_name == monitor_connector
-					{
-						selected_windows.push(window);
-					}
-				}
-			}
-			None => return self.windows.borrow().to_owned(),
+		for window in windows.drain(..) {
+			window.close();
 		}
 
-		if selected_windows.is_empty() {
-			eprintln!("Specified monitor name, but found no matching output");
+		for i in 0..monitors.n_items() {
+			if let Some(monitor) = monitors
+				.item(i)
+				.and_then(|obj| obj.downcast::<gdk::Monitor>().ok())
+			{
+				windows.push(SwayosdWindow::new(&self.app, &monitor));
+			}
+		}
+	}
+
+	fn windows_for_monitor(&self, monitor_name: &str) -> Vec<SwayosdWindow> {
+		let mut selected_windows = Vec::new();
+
+		for window in self.windows.borrow().iter().cloned() {
+			if let Some(monitor_connector) = window.monitor.connector()
+				&& monitor_name == monitor_connector
+			{
+				selected_windows.push(window);
+			} else {
+				window.hide_immediately();
+			}
 		}
 
 		selected_windows
+	}
+
+	fn choose_windows(&self) -> Vec<SwayosdWindow> {
+		match get_monitor_name() {
+			Some(monitor_name) => {
+				let mut selected_windows = self.windows_for_monitor(&monitor_name);
+				if selected_windows.is_empty() {
+					self.rebuild_windows();
+					selected_windows = self.windows_for_monitor(&monitor_name);
+				}
+
+				if selected_windows.is_empty() {
+					eprintln!("Specified monitor name, but found no matching output");
+				}
+
+				selected_windows
+			}
+			None => self.windows.borrow().to_owned(),
+		}
 	}
 
 	fn action_activated(

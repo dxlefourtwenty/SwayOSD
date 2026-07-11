@@ -111,6 +111,14 @@ impl SwayosdWindow {
 		self.window.close();
 	}
 
+	pub fn hide_immediately(&self) {
+		if let Some(timeout_id) = self.timeout_id.take() {
+			timeout_id.remove();
+		}
+		self.remove_animation();
+		self.window.hide();
+	}
+
 	pub fn changed_volume(&self, device: &DeviceInfo, device_type: &VolumeDeviceType) {
 		self.clear_osd();
 
@@ -363,9 +371,11 @@ impl SwayosdWindow {
 			return;
 		}
 
+		self.remove_animation();
 		let hidden_margin = self.hidden_bottom_margin();
 		self.window
 			.set_margin(gtk_layer_shell::Edge::Bottom, hidden_margin);
+		self.window.set_monitor(Some(&self.monitor));
 		self.window.show();
 		self.animate_bottom_margin(
 			hidden_margin,
@@ -400,6 +410,7 @@ impl SwayosdWindow {
 		self.remove_animation();
 		self.window
 			.set_margin(gtk_layer_shell::Edge::Bottom, margin);
+		self.window.set_monitor(Some(&self.monitor));
 		self.window.show();
 	}
 
